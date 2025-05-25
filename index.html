@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;">
+    <title>Electron Browser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'browser-bg': '#0f0f0f',
+                        'sidebar-bg': '#1a1a1a',
+                        'sidebar-border': '#2a2a2a',
+                        'tab-active': '#2563eb',
+                        'tab-hover': '#1e40af',
+                        'tab-bg': '#262626',
+                        'input-bg': '#171717',
+                        'input-border': '#404040'
+                    },
+                    animation: {
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'fade-in': 'fadeIn 0.2s ease-out'
+                    },
+                    keyframes: {
+                        slideIn: {
+                            '0%': { transform: 'translateY(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .fade-right {
+            background: linear-gradient(to right, transparent 0%, transparent 85%, #171717 100%);
+            pointer-events: none;
+        }
+        .address-input {
+            background: linear-gradient(to right, #171717 0%, #171717 85%, transparent 100%);
+        }
+        
+        /* Custom scrollbar */
+        .custom-scrollbar {
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #404040;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #525252;
+        }
+        .custom-scrollbar::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+        
+        /* Quick Search Modal */
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.6);
+        }
+        
+        .modal-bounce {
+            animation: modalBounce 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        @keyframes modalBounce {
+            0% { 
+                transform: scale(0.8) translateY(-50px); 
+                opacity: 0; 
+            }
+            100% { 
+                transform: scale(1) translateY(0); 
+                opacity: 1; 
+            }
+        }
+        
+        .shortcut-hint {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-browser-bg h-screen overflow-hidden">
+    <div class="flex h-full">
+        <!-- Left Sidebar -->
+        <div class="w-80 bg-sidebar-bg text-white flex flex-col border-r border-sidebar-border">
+            <!-- Address Bar in Sidebar -->
+            <div class="p-6 border-b border-sidebar-border">
+                <div class="relative mb-4">
+                    <input 
+                        type="text" 
+                        id="sidebar-address-bar" 
+                        placeholder="Geben Sie eine URL ein..." 
+                        value="https://www.google.com"
+                        class="w-full px-4 py-3 bg-input-bg text-white rounded-xl border border-input-border focus:border-tab-active focus:outline-none text-sm transition-all duration-200 pr-20"
+                    >
+                    <div class="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-6 fade-right"></div>
+                    <button 
+                        id="sidebar-go-btn"
+                        class="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1.5 bg-tab-active hover:bg-tab-hover rounded-lg text-xs font-medium transition-all duration-200"
+                    >
+                        →
+                    </button>
+                </div>
+                
+                <!-- Navigation Controls -->
+                <div class="flex gap-2">
+                    <button id="back-btn" class="flex-1 px-4 py-2.5 bg-tab-bg hover:bg-tab-hover rounded-xl text-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 font-medium" disabled>
+                        ←
+                    </button>
+                    <button id="forward-btn" class="flex-1 px-4 py-2.5 bg-tab-bg hover:bg-tab-hover rounded-xl text-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 font-medium" disabled>
+                        →
+                    </button>
+                    <button id="refresh-btn" class="px-4 py-2.5 bg-tab-bg hover:bg-tab-hover rounded-xl text-sm transition-all duration-200 font-medium">
+                        ↻
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Tab Management -->
+            <div class="flex-1 flex flex-col">
+                <div class="px-6 py-4 border-b border-sidebar-border">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-sm font-semibold text-gray-300">Tabs</h3>
+                        <button 
+                            id="new-tab-btn"
+                            class="px-4 py-2 bg-tab-active hover:bg-tab-hover rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105"
+                        >
+                            + Neu
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tab List -->
+                <div class="flex-1 px-6 pb-4 overflow-hidden">
+                    <div id="tab-list" class="space-y-2 h-full overflow-y-auto custom-scrollbar pr-2">
+                        <!-- Tabs werden hier dynamisch eingefügt -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Home Button -->
+            <div class="px-6 py-4 border-t border-sidebar-border">
+                <button 
+                    id="home-btn"
+                    class="w-full px-4 py-3 bg-tab-bg hover:bg-tab-hover rounded-xl text-sm transition-all duration-200 font-medium mb-3"
+                >
+                    🏠 Startseite
+                </button>
+                
+                <!-- Status -->
+                <div>
+                    <div id="loading-indicator" class="text-xs text-tab-active hidden font-medium">
+                        ⟳ Lädt...
+                    </div>
+                    <div id="url-display" class="text-xs text-gray-500 truncate mt-1 font-mono">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Webview Container -->
+            <div class="flex-1 relative">
+                <div id="webview-container" class="w-full h-full">
+                    <!-- Webviews werden hier dynamisch eingefügt -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Search Modal -->
+    <div id="quick-search-modal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-backdrop absolute inset-0"></div>
+        <div class="relative h-full flex items-center justify-center p-6">
+            <div class="modal-bounce bg-sidebar-bg border border-sidebar-border rounded-2xl p-8 w-full max-w-lg shadow-2xl">
+                <div class="text-center mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-2">🚀 Schnell-Navigation</h3>
+                    <p class="text-gray-400 text-sm">URL eingeben oder nach etwas suchen</p>
+                </div>
+                
+                <div class="relative mb-6">
+                    <input 
+                        type="text" 
+                        id="quick-search-input" 
+                        placeholder="URL eingeben oder Suchbegriff..." 
+                        class="w-full px-4 py-4 bg-input-bg text-white rounded-xl border border-input-border focus:border-tab-active focus:outline-none text-lg transition-all duration-200"
+                        autocomplete="off"
+                    >
+                    <div class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500">
+                        ⏎
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <div class="flex gap-2">
+                        <div class="shortcut-hint px-3 py-1 rounded-lg text-white text-xs font-mono">
+                            ⌘ + K
+                        </div>
+                        <div class="bg-tab-bg px-3 py-1 rounded-lg text-gray-400 text-xs">
+                            zum Öffnen
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button 
+                            id="quick-search-cancel" 
+                            class="px-4 py-2 bg-tab-bg hover:bg-gray-600 rounded-lg text-sm transition-colors"
+                        >
+                            Abbrechen
+                        </button>
+                        <button 
+                            id="quick-search-go" 
+                            class="px-4 py-2 bg-tab-active hover:bg-tab-hover rounded-lg text-sm font-medium transition-colors"
+                        >
+                            Neuer Tab
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-sidebar-border">
+                    <p class="text-xs text-gray-500 text-center">
+                        Tipp: Drücke <span class="text-tab-active">⌘ + K</span> von überall für schnelle Navigation
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="renderer.js"></script>
+</body>
+</html>
